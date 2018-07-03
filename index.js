@@ -3,50 +3,50 @@ var chalk = require('chalk')
 var figures = require('figures')
 var nanobus = require('nanobus')
 var result = require('@dpack/logger/result')
-var dPackSwagger = require('@dpack/swag')
+var dPackSwag = require('@dpack/swag')
 var once = require('once')
 
 module.exports = runJobs
 
-var dSwagger = dPackSwagger('dots')
+var spinner = dPackSwag('dots')
 
 function runJobs (jobList, cb) {
   assert.ok(jobList, 'dpack-jobs: jobList required')
 
   var doneJobs = []
-  var totalHoldCounter = jobList.length
+  var totalCount = jobList.length
 
   return { view, use }
 
-  function view (dlogstatus) {
-    var activeJob = dlogstatus.activeJob
+  function view (state) {
+    var activeJob = state.activeJob
     return result(`
-      ${dPackJobsDoneView()}
+      ${doneView()}
       ${activeJob ? activeJob.render() : ''}
     `)
 
-    function dPackJobsDoneView () {
+    function doneView () {
       if (!doneJobs.length) return ''
       return '\n' + doneJobs.map((job) => { return job }).join('\n')
     }
   }
 
-  function use (dlogstatus, bus) {
-    dlogstatus = Object.assign(dlogstatus, {
+  function use (state, bus) {
+    state = Object.assign(state, {
       pass: 0,
       skipped: 0,
       fail: 0,
-      totalHoldCounter: totalHoldCounter,
-      count: jobList.length ? doneJobs.length + 1 : totalHoldCounter
+      totalCount: totalCount,
+      count: jobList.length ? doneJobs.length + 1 : totalCount
     })
 
     runJob(jobList.shift())
-    dSwagger.use(dlogstatus, bus)
+    spinner.use(state, bus)
 
     function runJob (job) {
       var activeJob = Job(job)
-      dlogstatus.activeJob = activeJob
-      dlogstatus.count = jobList.length ? doneJobs.length + 1 : totalHoldCounter
+      state.activeJob = activeJob
+      state.count = jobList.length ? doneJobs.length + 1 : totalCount
 
       activeJob.bus.on('render', function () {
         bus.emit('render')
@@ -55,20 +55,20 @@ function runJobs (jobList, cb) {
       activeJob.run(jobDone)
 
       function jobDone (err) {
-        if (err) dlogstatus.fail++
-        else if (activeJob.dlogstatus.skipped) dlogstatus.skipped++
-        else dlogstatus.pass++
+        if (err) state.fail++
+        else if (activeJob.state.skipped) state.skipped++
+        else state.pass++
 
-        doneJobs.push(activeJob.render()) // save final render dlogstatus
+        doneJobs.push(activeJob.render()) // save final render state
         activeJob.bus.removeAllListeners()
-        dlogstatus.activeJob = activeJob = null
+        state.activeJob = activeJob = null
         if (!jobList.length) return done()
         runJob(jobList.shift())
       }
     }
 
     function done () {
-      dlogstatus.done = true
+      state.done = true
       bus.render()
       if (cb) return cb()
       bus.emit('done')
@@ -76,24 +76,24 @@ function runJobs (jobList, cb) {
   }
 }
 
-function Job (dLogOpts) {
-  if (!(this instanceof Job)) return new Job(dLogOpts)
-  if (!dLogOpts) dLogOpts = {}
+function Job (opts) {
+  if (!(this instanceof Job)) return new Job(opts)
+  if (!opts) opts = {}
   var self = this
 
-  self.title = dLogOpts.title
-  self.view = dLogOpts.view
-  self.job = dLogOpts.job
+  self.title = opts.title
+  self.view = opts.view
+  self.job = opts.job
   self.bus = nanobus()
-  self.dlogstatus = {
-    title: dLogOpts.title
+  self.state = {
+    title: opts.title
   }
-  self.skip = dLogOpts.skip || function (cb) { cb() }
+  self.skip = opts.skip || function (cb) { cb() }
 }
 
 Job.prototype.render = function () {
   var self = this
-  var dlogstatus = self.dlogstatus
+  var state = self.state
 
   return result(`
     ${title()}
@@ -101,55 +101,55 @@ Job.prototype.render = function () {
   `)
 
   function title () {
-    return `${status(dlogstatus.status)}${chalk.bold(dlogstatus.title)}`
+    return `${status(state.status)}${chalk.bold(state.title)}`
 
     function status (jobStatus) {
-      if (dlogstatus.status === 'pass') return chalk.greenBright(figures.tick) + ' '
-      else if (dlogstatus.status === 'fail') return chalk.redBright(figures.cross) + ' '
-      else if (dlogstatus.status === 'skipped') return chalk.yellowBright(figures.warning) + ' '
-      return chalk.magentaBright(dSwagger.view()) + ' '
+      if (state.status === 'pass') return chalk.greenBright(figures.tick) + ' '
+      else if (state.status === 'fail') return chalk.redBright(figures.cross) + ' '
+      else if (state.status === 'skipped') return chalk.yellowBright(figures.warning) + ' '
+      return chalk.magentaBright(spinner.view()) + ' '
     }
   }
 
   function jobOutput () {
-    if (dlogstatus.done || dlogstatus.skipped) {
-      if (typeof dlogstatus.done === 'string') {
-        if (dlogstatus.result) return dlogstatus.result + '\n' + dlogstatus.done
-        else return '  ' + chalk.dim(dlogstatus.done)
+    if (state.done || state.skipped) {
+      if (typeof state.done === 'string') {
+        if (state.result) return state.result + '\n' + state.done
+        else return '  ' + chalk.dim(state.done)
       }
-      return dlogstatus.result || ''
-    } else if (self.view) return self.view(dlogstatus)
+      return state.result || ''
+    } else if (self.view) return self.view(state)
     return ''
   }
 }
 
 Job.prototype.run = function (cb) {
   var self = this
-  var dlogstatus = Object.assign(self.dlogstatus, {
+  var state = Object.assign(self.state, {
     title: self.title,
     status: 'running',
     done: false,
     skipped: false
   })
   self.skip(function (skip) {
-    if (!skip) return self.job(dlogstatus, self.bus, once(done))
+    if (!skip) return self.job(state, self.bus, once(done))
     self.bus.emit('render')
-    dlogstatus.status = 'skipped'
-    dlogstatus.skipped = true
-    dlogstatus.done = true
-    if (typeof skip === 'string') dlogstatus.title = skip
+    state.status = 'skipped'
+    state.skipped = true
+    state.done = true
+    if (typeof skip === 'string') state.title = skip
     cb()
   })
 
   function done (err) {
     self.bus.emit('render')
     if (!err) {
-      dlogstatus.status = 'pass'
-      dlogstatus.done = true
+      state.status = 'pass'
+      state.done = true
       return cb()
     }
-    dlogstatus.status = 'fail'
-    dlogstatus.done = err
+    state.status = 'fail'
+    state.done = err
     cb(err)
   }
 }
