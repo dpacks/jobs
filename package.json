@@ -1,6 +1,6 @@
 {
   "name": "@dpack/jobs",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "dPack Library For Managing dPack/dWeb Network Jobs and Milestones via dPack's CLI.",
   "contributors": [
     "Jared Rice Sr. <jared@dwebs.io>",
