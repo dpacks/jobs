@@ -2,8 +2,8 @@ var assert = require('assert')
 var chalk = require('chalk')
 var figures = require('figures')
 var nanobus = require('nanobus')
-var result = require('dpack-logger/result')
-var dPackSwagger = require('dpack-swag')
+var result = require('@dpack/logger/result')
+var dPackSwagger = require('@dpack/swag')
 var once = require('once')
 
 module.exports = runJobs
