@@ -5,16 +5,16 @@ var dPackJobs = require('.')
 var jobs = [
   {
     title: 'Holding for 4 seconds..',
-    job: function (state, bus, done) {
-      state.count = 3
+    job: function (dlogstatus, bus, done) {
+      dlogstatus.count = 3
       var interval = setInterval(function () {
-        if (state.count === 0) {
-          state.title = 'Take Off!'
+        if (dlogstatus.count === 0) {
+          dlogstatus.title = 'Take Off!'
           clearInterval(interval)
           return done(null)
         }
-        state.title = `${state.count} seconds remain`
-        state.count--
+        dlogstatus.title = `${dlogstatus.count} seconds remain`
+        dlogstatus.count--
         bus.emit('render')
       }, 1000)
     },
@@ -24,7 +24,7 @@ var jobs = [
   },
   {
     title: 'Holding for 3 seconds..',
-    job: function (state, bus, done) {
+    job: function (dlogstatus, bus, done) {
       // will be skipped
       done('FAILED. This Should Be Skipped!')
     },
@@ -34,21 +34,21 @@ var jobs = [
   },
   {
     title: 'Holding for 3 seconds..',
-    job: function (state, bus, done) {
-      state.count = 0
+    job: function (dlogstatus, bus, done) {
+      dlogstatus.count = 0
       var interval = setInterval(function () {
-        if (state.count === 3) {
+        if (dlogstatus.count === 3) {
           // We errored!
           clearInterval(interval)
           return done('An error has occurred!')
         }
-        state.count++
+        dlogstatus.count++
         bus.emit('render')
       }, 1000)
     },
-    view: function (state) {
+    view: function (dlogstatus) {
       return `
-        Count: ${state.count}
+        Count: ${dlogstatus.count}
         Counting Things...
       `
     }
@@ -58,25 +58,25 @@ var jobs = [
 var runJobs = dPackJobs(jobs)
 var dPackEntry = dPackLogger([header, runJobs.view, footer], {dlogpace: 80})
 dPackEntry.use(runJobs.use)
-dPackEntry.use(function (state, bus) {
+dPackEntry.use(function (dlogstatus, bus) {
   bus.once('done', function () {
     process.exit(0)
   })
 })
 
-function header (state) {
-  if (state.done) return 'dPack Jobs Have Completed!' + '\n'
+function header (dlogstatus) {
+  if (dlogstatus.done) return 'dPack Jobs Have Completed!' + '\n'
   return result(`
-    Running dPack Jobs: ${state.count} of ${state.totalCount}
+    Running dPack Jobs: ${dlogstatus.count} of ${dlogstatus.totalCount}
   `) + '\n'
 }
 
-function footer (state) {
-  if (!state.done) return ''
+function footer (dlogstatus) {
+  if (!dlogstatus.done) return ''
   return '\n' + result(`
     Completed All dPack Jobs. Here Are The Job Stats:
-      Pass: ${state.pass}
-      Skipped: ${state.skipped}
-      Fail: ${state.fail}
+      Pass: ${dlogstatus.pass}
+      Skipped: ${dlogstatus.skipped}
+      Fail: ${dlogstatus.fail}
   `)
 }
